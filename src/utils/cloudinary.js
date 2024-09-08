@@ -21,7 +21,7 @@ import { v2 as cloudinary } from 'cloudinary';
             resource_type: 'auto',
         }
         )
-        console.log(response.url);
+        fs.unlinkSync(localFilePath)
         return response
             
         } catch (error) {
