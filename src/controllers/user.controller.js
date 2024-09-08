@@ -1,44 +1,55 @@
-import {asyncHandler} from '../utils/asyncHandler.js'
-import {ApiError} from '../utils/apiError.js'
+import { asyncHandler } from '../utils/asyncHandler.js'
+import { ApiError } from '../utils/apiError.js'
 import { ApiResponse } from '../utils/ApiResponse.js'
-import {User} from '../models/user.model.js'
-import {uploadOnCloudinary} from '../utils/cloudinary.js'
-const registerUser = asyncHandler( async (req, res) => {
+import { User } from '../models/user.model.js'
+import { uploadOnCloudinary } from '../utils/cloudinary.js'
+import unlink from '../utils/unlinkfile.js'
+const registerUser = asyncHandler(async (req, res) => {
+    // check for images , check for avatar
+
+    let avatarLocalPath
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        avatarLocalPath = req.files?.avatar[0]?.path
+    }
+    let coverImageLocalPath
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        coverImageLocalPath = req.files.coverImage[0].path;
+    }
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is required")
+    }
+
     // get user details from frontend
-    const {fullName, email, username ,password}=req.body
+    const { fullName, email, username, password } = req.body
     // validations - not empty
-    if(
-        [fullName,email,username,password].some((field)=>
-        field?.trim() ==="")
-    ){
-        
+    if (
+        [fullName, email, username, password].some((field) =>
+            !field || field.trim() === "")
+    ) {
+        unlink(avatarLocalPath)
+        unlink(coverImageLocalPath)
         throw new ApiError(400, "All fields are required")
     }
     // check if user is already registered username and email
     const existedUser = await User.findOne({
-        $or:[{username},{email}]
+        $or: [{ username }, { email }]
     })
 
-    if(existedUser){
+    if (existedUser) 
+        {
+            unlink(avatarLocalPath)
+        unlink(coverImageLocalPath)
         throw new ApiError(409, "User with email already registered")
     }
-    // check for images , check for avatar
-    const avatarLocalPath = req.files?.avatar[0]?.path
-    let coverImageLocalPath
-    if(req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0){
-        coverImageLocalPath = req.files.coverImage[0].path;
-    }
-    if(!avatarLocalPath){
-        throw new ApiError(400, "Avatar file is required")
-    }
+
     // upload them to cloudinary , avatar
     const avatar = await uploadOnCloudinary(avatarLocalPath)
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
-    if(!avatar){
+    if (!avatar) {
         throw new ApiError(400, "Avatar file is required")
     }
     // create user object - create entry in db 
-    const user= await User.create({
+    const user = await User.create({
         fullName,
         avatar: avatar.url,
         coverImage: coverImage?.url || "",
@@ -51,7 +62,9 @@ const registerUser = asyncHandler( async (req, res) => {
         "-password -refreshToken"
     )
     // check for user creation
-    if(!createdUser) {
+    if (!createdUser) {
+        unlink(avatarLocalPath)
+        unlink(coverImageLocalPath)
         throw new ApiError(500, "Something went wrong while creating the user")
     }
     // return response
@@ -60,4 +73,4 @@ const registerUser = asyncHandler( async (req, res) => {
     )
 })
 
-export {registerUser}
+export { registerUser }
