@@ -21,9 +21,8 @@ const generateAccessAndRefreshToken = async (userId) =>{
 
 const registerUser = asyncHandler(async (req, res) => {
     // check for images , check for avatar
-
     let avatarLocalPath
-    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+    if (req.files && Array.isArray(req.files.avatar) && req.files.avatar.length > 0) {
         avatarLocalPath = req.files?.avatar[0]?.path
     }
     let coverImageLocalPath
@@ -162,7 +161,7 @@ const refreshAccessToken = asyncHandler (async (req, res) => {
     try {
         const decodedToken = jwt.verify(incommingRefreshToken, process.env.REFRESH_TOKEN_SECRET)
     
-        const user = User.findById(decodedToken?._id)
+        const user = await User.findById(decodedToken?._id)
         if(!user){
             throw new ApiError(401, "invalid refresh token")
         }
@@ -194,8 +193,8 @@ const refreshAccessToken = asyncHandler (async (req, res) => {
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
     const{ currentPassword, newPassword }= req.body
-    const user = await User.findById(req.user?._id)
-    const isPasswordCorrect =await user.isPasswordCorrect(currentPassword)
+    const user = await User.findById(req.user._id)
+    const isPasswordCorrect = await user.isPasswordCorrect(currentPassword)
     if (!isPasswordCorrect) {
         throw new ApiError(400, "wrong password")
     }
@@ -211,8 +210,7 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 })
 
 const getCurrentUser = asyncHandler(async (req, res) =>{
-    return
-    res.status(200).json(new ApiResponse(
+    return res.status(200).json(new ApiResponse(
         200, req.user, "user retrieved successfully"
     ))
 })
@@ -250,7 +248,10 @@ const updateAccountFullName = asyncHandler(async (req, res) =>{
 })
 
 const updateAvatar = asyncHandler(async(req, res)=>{
-    const localAvatar = req.file?.path
+    let localAvatar
+    if (req.files && Array.isArray(req.files.avatar) && req.files.avatar.length > 0) {
+        localAvatar = req.files?.avatar[0]?.path
+    }
     if(!localAvatar){
         throw new ApiError(400, "avatar file is required");
     }
@@ -269,8 +270,12 @@ const updateAvatar = asyncHandler(async(req, res)=>{
     return res.status(200).json(new ApiResponse(200,user,"Avatar updated successfully"))
 })
 const updateCover = asyncHandler(async(req, res)=>{
-    const localCover = req.file?.path
+    let localCover
+    if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+        localCover = req.files?.coverImage[0]?.path
+    }
     if(!localCover){
+        unlink(localCover)
         throw new ApiError(400, "cover image file is required");
     }
     const cover = await uploadOnCloudinary(localCover)
